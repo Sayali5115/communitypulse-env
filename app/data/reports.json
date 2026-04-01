@@ -1,0 +1,279 @@
+{
+  "task1": {
+    "description": "Clean allocation. Enough volunteers, clear urgency, no deadlines.",
+    "needs": [
+      {
+        "id": "n1",
+        "category": "medical",
+        "urgency": 0.9,
+        "confidence": 1.0,
+        "people_affected": 45,
+        "deadline_steps": -1,
+        "required_skill": "medical",
+        "status": "open",
+        "assigned_volunteer": null,
+        "description": "Elderly patients need insulin and basic medical care at Dharavi camp."
+      },
+      {
+        "id": "n2",
+        "category": "food",
+        "urgency": 0.7,
+        "confidence": 1.0,
+        "people_affected": 120,
+        "deadline_steps": -1,
+        "required_skill": "food",
+        "status": "open",
+        "assigned_volunteer": null,
+        "description": "Families at Kurla shelter have not received food supplies in 24 hours."
+      },
+      {
+        "id": "n3",
+        "category": "water",
+        "urgency": 0.8,
+        "confidence": 1.0,
+        "people_affected": 200,
+        "deadline_steps": -1,
+        "required_skill": "water",
+        "status": "open",
+        "assigned_volunteer": null,
+        "description": "Water pipeline broken near Andheri East. Community using unsafe water source."
+      },
+      {
+        "id": "n4",
+        "category": "shelter",
+        "urgency": 0.5,
+        "confidence": 1.0,
+        "people_affected": 30,
+        "deadline_steps": -1,
+        "required_skill": "shelter",
+        "status": "open",
+        "assigned_volunteer": null,
+        "description": "20 families need temporary shelter after building evacuation in Bandra."
+      }
+    ],
+    "volunteers": ["v1", "v2", "v3", "v4"],
+    "ground_truth": {
+      "n1": "v1",
+      "n2": "v2",
+      "n3": "v3",
+      "n4": "v4"
+    }
+  },
+
+  "task2": {
+    "description": "Scarcity + prioritization. Fewer volunteers than needs. Agent must prioritize HIGH urgency.",
+    "needs": [
+      {
+        "id": "n1",
+        "category": "medical",
+        "urgency": 0.95,
+        "confidence": 0.8,
+        "people_affected": 60,
+        "deadline_steps": -1,
+        "required_skill": "medical",
+        "status": "open",
+        "assigned_volunteer": null,
+        "description": "Diabetic patients without medication at Govandi relief camp. Situation critical."
+      },
+      {
+        "id": "n2",
+        "category": "water",
+        "urgency": 0.85,
+        "confidence": 0.75,
+        "people_affected": 300,
+        "deadline_steps": -1,
+        "required_skill": "water",
+        "status": "open",
+        "assigned_volunteer": null,
+        "description": "Contaminated water supply reported near Mankhurd. High risk of disease outbreak."
+      },
+      {
+        "id": "n3",
+        "category": "food",
+        "urgency": 0.4,
+        "confidence": 0.9,
+        "people_affected": 50,
+        "deadline_steps": -1,
+        "required_skill": "food",
+        "status": "open",
+        "assigned_volunteer": null,
+        "description": "Food supplies running low at Chembur community center. Not urgent yet."
+      },
+      {
+        "id": "n4",
+        "category": "shelter",
+        "urgency": 0.3,
+        "confidence": 0.85,
+        "people_affected": 15,
+        "deadline_steps": -1,
+        "required_skill": "shelter",
+        "status": "open",
+        "assigned_volunteer": null,
+        "description": "Minor repairs needed at Mulund shelter. Low priority, can wait."
+      },
+      {
+        "id": "n5",
+        "category": "logistics",
+        "urgency": 0.75,
+        "confidence": 0.7,
+        "people_affected": 80,
+        "deadline_steps": -1,
+        "required_skill": "logistics",
+        "status": "open",
+        "assigned_volunteer": null,
+        "description": "Supply truck stuck. Medicines and food need redistribution to 3 camps urgently."
+      },
+      {
+        "id": "n6",
+        "category": "medical",
+        "urgency": 0.6,
+        "confidence": 0.65,
+        "people_affected": 25,
+        "deadline_steps": -1,
+        "required_skill": "medical",
+        "status": "open",
+        "assigned_volunteer": null,
+        "description": "Possible fever outbreak reported at Vikhroli camp. Needs investigation."
+      }
+    ],
+    "volunteers": ["v1", "v3", "v5"],
+    "ground_truth": {
+      "n1": "v1",
+      "n2": "v3",
+      "n5": "v5"
+    }
+  },
+
+  "task3": {
+    "description": "Full pipeline. Deadlines, skill constraints, maximum scarcity. Agent must optimize total impact.",
+    "needs": [
+      {
+        "id": "n1",
+        "category": "medical",
+        "urgency": 0.95,
+        "confidence": 0.9,
+        "people_affected": 80,
+        "deadline_steps": 4,
+        "required_skill": "medical",
+        "status": "open",
+        "assigned_volunteer": null,
+        "description": "Snake bite victims need antivenom at Aarey colony. Deadline critical."
+      },
+      {
+        "id": "n2",
+        "category": "water",
+        "urgency": 0.9,
+        "confidence": 0.85,
+        "people_affected": 500,
+        "deadline_steps": 5,
+        "required_skill": "water",
+        "status": "open",
+        "assigned_volunteer": null,
+        "description": "Flood water contamination in Sion affecting 500 people. Disease risk rising."
+      },
+      {
+        "id": "n3",
+        "category": "food",
+        "urgency": 0.8,
+        "confidence": 0.75,
+        "people_affected": 150,
+        "deadline_steps": 6,
+        "required_skill": "food",
+        "status": "open",
+        "assigned_volunteer": null,
+        "description": "Children at Malad camp not fed in 36 hours. Deadline in 6 steps."
+      },
+      {
+        "id": "n4",
+        "category": "shelter",
+        "urgency": 0.85,
+        "confidence": 0.8,
+        "people_affected": 90,
+        "deadline_steps": 7,
+        "required_skill": "shelter",
+        "status": "open",
+        "assigned_volunteer": null,
+        "description": "Flood damaged housing in Kurla. Families sleeping outside, monsoon expected."
+      },
+      {
+        "id": "n5",
+        "category": "logistics",
+        "urgency": 0.7,
+        "confidence": 0.6,
+        "people_affected": 200,
+        "deadline_steps": 8,
+        "required_skill": "logistics",
+        "status": "open",
+        "assigned_volunteer": null,
+        "description": "Aid supply chain disrupted. Multiple camps waiting on redistribution."
+      },
+      {
+        "id": "n6",
+        "category": "medical",
+        "urgency": 0.6,
+        "confidence": 0.55,
+        "people_affected": 40,
+        "deadline_steps": -1,
+        "required_skill": "medical",
+        "status": "open",
+        "assigned_volunteer": null,
+        "description": "General health check needed at Dharavi. No immediate deadline."
+      },
+      {
+        "id": "n7",
+        "category": "food",
+        "urgency": 0.5,
+        "confidence": 0.7,
+        "people_affected": 60,
+        "deadline_steps": -1,
+        "required_skill": "food",
+        "status": "open",
+        "assigned_volunteer": null,
+        "description": "Food stocks low at Thane shelter. Not urgent, replenishment possible."
+      },
+      {
+        "id": "n8",
+        "category": "water",
+        "urgency": 0.4,
+        "confidence": 0.8,
+        "people_affected": 35,
+        "deadline_steps": -1,
+        "required_skill": "water",
+        "status": "open",
+        "assigned_volunteer": null,
+        "description": "Minor water quality issue at Borivali camp. Monitoring needed."
+      },
+      {
+        "id": "n9",
+        "category": "shelter",
+        "urgency": 0.3,
+        "confidence": 0.9,
+        "people_affected": 10,
+        "deadline_steps": -1,
+        "required_skill": "shelter",
+        "status": "open",
+        "assigned_volunteer": null,
+        "description": "Routine shelter maintenance at Andheri camp. Low priority."
+      },
+      {
+        "id": "n10",
+        "category": "logistics",
+        "urgency": 0.45,
+        "confidence": 0.65,
+        "people_affected": 70,
+        "deadline_steps": -1,
+        "required_skill": "logistics",
+        "status": "open",
+        "assigned_volunteer": null,
+        "description": "Vehicle coordination needed for volunteer transport. Can be deferred."
+      }
+    ],
+    "volunteers": ["v1", "v3", "v2", "v4"],
+    "ground_truth": {
+      "n1": "v1",
+      "n2": "v3",
+      "n3": "v2",
+      "n4": "v4"
+    }
+  }
+}

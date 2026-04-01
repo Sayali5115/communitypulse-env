@@ -1,0 +1,72 @@
+[
+  {
+    "id": "v1",
+    "name": "Priya Sharma",
+    "skill": "medical",
+    "available": true,
+    "busy_until_step": 0
+  },
+  {
+    "id": "v2",
+    "name": "Rahul Patil",
+    "skill": "food",
+    "available": true,
+    "busy_until_step": 0
+  },
+  {
+    "id": "v3",
+    "name": "Sunita Desai",
+    "skill": "water",
+    "available": true,
+    "busy_until_step": 0
+  },
+  {
+    "id": "v4",
+    "name": "Amit Kulkarni",
+    "skill": "shelter",
+    "available": true,
+    "busy_until_step": 0
+  },
+  {
+    "id": "v5",
+    "name": "Meera Joshi",
+    "skill": "logistics",
+    "available": true,
+    "busy_until_step": 0
+  },
+  {
+    "id": "v6",
+    "name": "Deepak Nair",
+    "skill": "medical",
+    "available": true,
+    "busy_until_step": 0
+  },
+  {
+    "id": "v7",
+    "name": "Kavita Singh",
+    "skill": "food",
+    "available": true,
+    "busy_until_step": 0
+  },
+  {
+    "id": "v8",
+    "name": "Rajan Mehta",
+    "skill": "water",
+    "available": true,
+    "busy_until_step": 0
+  },
+  {
+    "id": "v9",
+    "name": "Anita Reddy",
+    "skill": "shelter",
+    "available": true,
+    "busy_until_step": 0
+  },
+  {
+    "id": "v10",
+    "name": "Vijay Kumar",
+    "skill": "logistics",
+    "available": true,
+    "busy_until_step": 0
+  }
+]
