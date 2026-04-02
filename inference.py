@@ -2,41 +2,70 @@
 CommunityPulse-Env — Baseline Inference Script
 Runs an LLM agent against all 3 tasks and prints scores.
 
-Requirements:
-    - API_BASE_URL env var set
-    - MODEL_NAME env var set
-    - HF_TOKEN env var set
-    - Environment server running on localhost:7860
+STDOUT FORMAT (mandatory):
+    [START] task=<task_name> env=<benchmark> model=<model_name>
+    [STEP]  step=<n> action=<action_str> reward=<0.00> done=<true|false> error=<msg|null>
+    [END]   success=<true|false> steps=<n> score=<0.000> rewards=<r1,r2,...,rn>
 
 Usage:
     python inference.py
+
+Environment variables:
+    API_BASE_URL  — LLM API endpoint
+    MODEL_NAME    — model identifier
+    HF_TOKEN      — Hugging Face / API key
+    ENV_URL       — environment server URL (default: http://localhost:7860)
 """
 
 import os
 import json
 import time
 import requests
+from typing import Optional, List
 from openai import OpenAI
 
 # ─────────────────────────────────────────────
 # CONFIG
 # ─────────────────────────────────────────────
 
-API_BASE_URL = os.environ.get("API_BASE_URL", "https://api.openai.com/v1")
-MODEL_NAME   = os.environ.get("MODEL_NAME", "gpt-4o")
-HF_TOKEN     = os.environ.get("HF_TOKEN", "")
+API_BASE_URL = os.getenv("API_BASE_URL", "https://router.huggingface.co/v1")
+MODEL_NAME   = os.getenv("MODEL_NAME", "Qwen/Qwen2.5-72B-Instruct")
+HF_TOKEN     = os.getenv("HF_TOKEN", "")
+ENV_URL      = os.getenv("ENV_URL", "http://localhost:7860")
 
-ENV_URL      = os.environ.get("ENV_URL", "http://localhost:7860")
-
+BENCHMARK         = "communitypulse-env"
 MAX_INFERENCE_MINUTES = 15
-START_TIME           = time.time()
+START_TIME        = time.time()
 
-# OpenAI client pointed at configured base URL
+SUCCESS_THRESHOLD = 0.5   # score >= 0.5 = success
+
+# OpenAI client
 client = OpenAI(
     base_url=API_BASE_URL,
     api_key=HF_TOKEN if HF_TOKEN else "dummy-key",
 )
 
+# ─────────────────────────────────────────────
+# MANDATORY LOG FUNCTIONS
+# ─────────────────────────────────────────────
+
+def log_start(task: str, env: str, model: str) -> None:
+    print(f"[START] task={task} env={env} model={model}", flush=True)
+
+def log_step(step: int, action: str, reward: float, done: bool, error: Optional[str]) -> None:
+    error_val = error if error else "null"
+    done_val  = str(done).lower()
+    print(
+        f"[STEP] step={step} action={action} reward={reward:.2f} done={done_val} error={error_val}",
+        flush=True,
+    )
+
+def log_end(success: bool, steps: int, score: float, rewards: List[float]) -> None:
+    rewards_str = ",".join(f"{r:.2f}" for r in rewards)
+    print(
+        f"[END] success={str(success).lower()} steps={steps} score={score:.3f} rewards={rewards_str}",
+        flush=True,
+    )
 
 # ─────────────────────────────────────────────
 # HELPERS
@@ -45,45 +74,38 @@ client = OpenAI(
 def check_timeout():
     elapsed = (time.time() - START_TIME) / 60
     if elapsed > MAX_INFERENCE_MINUTES:
-        print(f"\nTimeout: {MAX_INFERENCE_MINUTES} min limit reached. Stopping.")
+        print(f"[DEBUG] Timeout: {MAX_INFERENCE_MINUTES} min limit reached.", flush=True)
         raise SystemExit(1)
 
 
 def call_env(endpoint: str, method: str = "GET", body: dict = None) -> dict:
-    """Call the environment API."""
     url = f"{ENV_URL}{endpoint}"
     try:
         if method == "POST":
-            resp = requests.post(url, json=body, timeout=30)
+            resp = requests.post(url, json=body or {}, timeout=30)
         else:
             resp = requests.get(url, timeout=30)
         resp.raise_for_status()
         return resp.json()
     except Exception as e:
-        print(f"Environment call failed: {endpoint} -> {e}")
+        print(f"[DEBUG] Environment call failed: {endpoint} -> {e}", flush=True)
         raise
 
 
 def format_observation(obs: dict) -> str:
-    """Format observation into a clear prompt for the LLM."""
     lines = []
     lines.append(f"=== NGO CONTROL ROOM — Step {obs['step']} ===")
     lines.append(f"Time remaining: {obs['time_remaining']} steps")
-    lines.append("")
 
-    # Warnings
     if obs.get("warnings"):
-        lines.append("⚠️  WARNINGS:")
+        lines.append("WARNINGS:")
         for w in obs["warnings"]:
-            lines.append(f"   {w}")
-        lines.append("")
+            lines.append(f"  {w}")
 
-    # Needs
-    lines.append("HUMANITARIAN NEEDS:")
+    lines.append("\nHUMANITARIAN NEEDS:")
     for need in obs["needs"]:
-        status = need["status"].upper()
-        if status in ("RESOLVED", "EXPIRED"):
-            continue  # skip done needs
+        if need["status"] in ("resolved", "expired"):
+            continue
         deadline = (
             f"DEADLINE in {need['deadline_steps']} steps"
             if need["deadline_steps"] > 0
@@ -94,65 +116,38 @@ def format_observation(obs: dict) -> str:
             f"urgency={need['urgency']:.1f} | "
             f"confidence={need['confidence']:.1f} | "
             f"people={need['people_affected']} | "
-            f"{deadline} | "
-            f"needs_skill={need['required_skill']} | "
-            f"status={need['status']}"
+            f"{deadline} | needs_skill={need['required_skill']}"
         )
-        lines.append(f"       {need['description']}")
 
-    lines.append("")
-
-    # Volunteers
-    lines.append("AVAILABLE VOLUNTEERS:")
+    lines.append("\nAVAILABLE VOLUNTEERS:")
     for vol in obs["volunteers"]:
-        availability = (
-            "AVAILABLE"
-            if vol["available"]
-            else f"BUSY until step {vol['busy_until_step']}"
-        )
-        lines.append(
-            f"  [{vol['id']}] {vol['name']} | "
-            f"skill={vol['skill']} | "
-            f"{availability}"
-        )
-
-    lines.append("")
-    lines.append(f"Last reward: {obs['last_reward']}")
+        status = "AVAILABLE" if vol["available"] else f"BUSY until step {vol['busy_until_step']}"
+        lines.append(f"  [{vol['id']}] {vol['name']} | skill={vol['skill']} | {status}")
 
     return "\n".join(lines)
 
 
-def get_llm_action(obs: dict, task_id: int, retry: int = 0) -> dict:
-    """
-    Ask the LLM to decide the next action.
-    Returns a valid action dict.
-    """
+def get_llm_action(obs: dict, retry: int = 0) -> dict:
     check_timeout()
 
-    situation = format_observation(obs)
-
     system_prompt = """You are an AI coordinator for a humanitarian NGO.
-Your job is to allocate volunteers to urgent needs as effectively as possible.
+Allocate volunteers to urgent needs as effectively as possible.
 
 RULES:
 - Prioritize HIGH urgency needs (urgency >= 0.8) first
-- Match volunteer skill to need required_skill exactly when possible
+- Match volunteer skill to need required_skill exactly
 - Assign before deadlines expire
 - Do not assign busy volunteers
-- Do not assign to already resolved/expired needs
+- Do not assign to resolved/expired needs
 
-You must respond with ONLY a valid JSON action object. Nothing else.
-No explanation. No markdown. Just the JSON.
+Respond with ONLY a valid JSON action. No explanation. No markdown.
 
 Action format:
   Assign:      {"type": "assign", "need_id": "n1", "volunteer_id": "v1"}
   Wait:        {"type": "wait"}
-  Investigate: {"type": "investigate", "need_id": "n1"}
-"""
+  Investigate: {"type": "investigate", "need_id": "n1"}"""
 
-    user_prompt = f"""{situation}
-
-What is your next action? Respond with JSON only."""
+    user_prompt = format_observation(obs) + "\n\nWhat is your next action? JSON only."
 
     try:
         response = client.chat.completions.create(
@@ -164,94 +159,117 @@ What is your next action? Respond with JSON only."""
                 {"role": "user",   "content": user_prompt},
             ],
         )
-
         raw = response.choices[0].message.content.strip()
-
-        # Clean up any accidental markdown
         raw = raw.replace("```json", "").replace("```", "").strip()
+        return json.loads(raw)
 
-        action = json.loads(raw)
-        return action
-
-    except json.JSONDecodeError as e:
-        print(f"  LLM returned invalid JSON (attempt {retry+1}): {e}")
+    except json.JSONDecodeError:
         if retry < 2:
-            return get_llm_action(obs, task_id, retry + 1)
-        # Fallback: wait
+            return get_llm_action(obs, retry + 1)
         return {"type": "wait"}
-
     except Exception as e:
-        print(f"  LLM call failed (attempt {retry+1}): {e}")
+        print(f"[DEBUG] LLM call failed (attempt {retry+1}): {e}", flush=True)
         if retry < 2:
             time.sleep(2)
-            return get_llm_action(obs, task_id, retry + 1)
+            return get_llm_action(obs, retry + 1)
         return {"type": "wait"}
 
 
 # ─────────────────────────────────────────────
-# MAIN EPISODE RUNNER
+# TASK RUNNER
 # ─────────────────────────────────────────────
+
+TASK_NAMES = {
+    1: "clean_allocation",
+    2: "prioritization_under_scarcity",
+    3: "deadline_skill_optimization",
+}
 
 def run_task(task_id: int) -> float:
-    """
-    Run one full episode for the given task.
-    Returns the final grader score.
-    """
-    print(f"\n{'='*50}")
-    print(f"  TASK {task_id}")
-    print(f"{'='*50}")
+    task_name = TASK_NAMES[task_id]
+    rewards: List[float] = []
+    steps_taken = 0
+    score = 0.0
+    success = False
 
-    # Reset environment
-    obs = call_env("/reset", method="POST", body={"task_id": task_id})
-    print(f"Episode {obs['episode_id']} started | Budget: {obs['time_remaining']} steps")
+    log_start(task=task_name, env=BENCHMARK, model=MODEL_NAME)
 
-    episode_score = 0.0
-    done = False
-    step = 0
+    try:
+        obs = call_env("/reset", method="POST", body={"task_id": task_id})
+        done = False
 
-    while not done:
-        check_timeout()
+        for step in range(1, 200):
+            check_timeout()
+            if done:
+                break
 
-        # Get LLM action
-        action = get_llm_action(obs, task_id)
-        print(f"  Step {step+1}: action={json.dumps(action)}")
+            action = get_llm_action(obs)
+            action_str = json.dumps(action, separators=(',', ':'))
 
-        # Execute action
-        result = call_env("/step", method="POST", body={"action": action})
+            error = None
+            try:
+                result  = call_env("/step", method="POST", body={"action": action})
+                obs     = result["observation"]
+                done    = result["done"]
+                reward  = result["reward"]["value"]
+                error   = None
+            except Exception as e:
+                reward  = 0.0
+                done    = True
+                error   = str(e)
 
-        obs   = result["observation"]
-        done  = result["done"]
-        reward_val = result["reward"]["value"]
-        reason     = result["reward"]["reason"]
+            rewards.append(reward)
+            steps_taken = step
 
-        print(f"           reward={reward_val} | {reason[:80]}")
+            log_step(
+                step=step,
+                action=action_str,
+                reward=reward,
+                done=done,
+                error=error,
+            )
 
-        if done and "episode_score" in result["info"]:
-            episode_score = result["info"]["episode_score"]
+            if done:
+                # Get final grader score from info
+                try:
+                    score = result["info"].get("episode_score", 0.0)
+                except Exception:
+                    score = 0.0
+                break
 
-        step += 1
+        success = score >= SUCCESS_THRESHOLD
 
-    print(f"\n  Final score: {episode_score}")
-    return episode_score
+    except Exception as e:
+        print(f"[DEBUG] Task {task_id} error: {e}", flush=True)
+        success = False
+        score   = 0.0
+
+    finally:
+        log_end(
+            success=success,
+            steps=steps_taken,
+            score=score,
+            rewards=rewards,
+        )
+
+    return score
 
 
 # ─────────────────────────────────────────────
-# ENTRY POINT
+# MAIN
 # ─────────────────────────────────────────────
 
 def main():
-    print("CommunityPulse-Env — Baseline Inference")
-    print(f"Model:   {MODEL_NAME}")
-    print(f"API URL: {API_BASE_URL}")
-    print(f"Env URL: {ENV_URL}")
+    print(f"[DEBUG] Model:   {MODEL_NAME}", flush=True)
+    print(f"[DEBUG] API URL: {API_BASE_URL}", flush=True)
+    print(f"[DEBUG] Env URL: {ENV_URL}", flush=True)
 
     # Check environment is reachable
     try:
         health = call_env("/health")
-        print(f"Environment health: {health['status']}")
+        print(f"[DEBUG] Environment health: {health['status']}", flush=True)
     except Exception:
-        print("ERROR: Environment not reachable. Start the server first:")
-        print("  uvicorn app.main:app --host 0.0.0.0 --port 7860")
+        print("[DEBUG] ERROR: Environment not reachable.", flush=True)
         raise SystemExit(1)
 
     scores = {}
@@ -263,22 +281,19 @@ def main():
         except SystemExit:
             raise
         except Exception as e:
-            print(f"Task {task_id} failed: {e}")
+            print(f"[DEBUG] Task {task_id} failed: {e}", flush=True)
             scores[task_id] = 0.0
 
-    # ── Final Results Table ──────────────────
-    print(f"\n{'='*50}")
-    print("  BASELINE RESULTS")
-    print(f"{'='*50}")
-    print(f"  Task 1 (Easy):   {scores.get(1, 0.0):.4f}")
-    print(f"  Task 2 (Medium): {scores.get(2, 0.0):.4f}")
-    print(f"  Task 3 (Hard):   {scores.get(3, 0.0):.4f}")
+    # Final summary
+    print(f"\n[DEBUG] {'='*40}", flush=True)
+    print(f"[DEBUG] BASELINE RESULTS", flush=True)
+    print(f"[DEBUG] Task 1 (Easy):   {scores.get(1, 0.0):.4f}", flush=True)
+    print(f"[DEBUG] Task 2 (Medium): {scores.get(2, 0.0):.4f}", flush=True)
+    print(f"[DEBUG] Task 3 (Hard):   {scores.get(3, 0.0):.4f}", flush=True)
     avg = sum(scores.values()) / len(scores)
-    print(f"  Average:         {avg:.4f}")
-    print(f"{'='*50}")
-
+    print(f"[DEBUG] Average:         {avg:.4f}", flush=True)
     elapsed = (time.time() - START_TIME) / 60
-    print(f"\nCompleted in {elapsed:.1f} minutes")
+    print(f"[DEBUG] Completed in {elapsed:.1f} minutes", flush=True)
 
 
 if __name__ == "__main__":
