@@ -2,31 +2,153 @@
 
 An RL environment simulating humanitarian NGO volunteer coordination.
 
-An AI agent acts as a field coordinator in an NGO control room — reading urgent humanitarian needs, allocating limited volunteers, and managing time pressure and resource scarcity. One decision per step. Dense rewards after every action.
+An AI agent acts as a field coordinator — reading urgent humanitarian needs, allocating limited volunteers, and managing time pressure and resource scarcity. One decision per step. Dense rewards after every action.
 
 ---
 
 ## Motivation
 
-Field coordinators at grassroots NGOs manually triage dozens of incoming needs, match volunteers by skill and availability, and race against deadlines — often with fewer resources than required. This environment models that exact decision process, enabling agents to learn optimal allocation strategies under real-world constraints.
+Field coordinators at grassroots NGOs face a hard real-world problem every day: multiple urgent humanitarian needs arrive simultaneously, volunteers have different skills and availability, and every delay has a human cost. Today this coordination happens manually — a coordinator reads reports, makes judgment calls, and hopes they got the priorities right.
 
-No such training benchmark existed for this domain. CommunityPulse-Env fills that gap.
+This environment models that exact decision process. An agent that learns here learns to prioritize under uncertainty, match skills to needs, and manage competing deadlines — skills that translate directly to real coordination scenarios.
+
+No such training benchmark existed for this domain before.
 
 ---
 
-## Environment Description
+## Environment Workflow
 
-The agent sits in a simulated NGO control room with:
-- A set of **humanitarian needs** (medical, food, water, shelter, logistics) each with urgency, confidence, people affected, required skill, and optional deadline
-- A set of **volunteers** with specific skills and availability
-- A **step budget** that creates time pressure
+```
+reset(task_id)
+      │
+      ▼
+ Observation
+ (needs + volunteers + warnings)
+      │
+      ▼
+ Agent decides action          ┌─────────────────┐
+ (assign / wait / investigate) │  action types:  │
+      │                        │  assign         │
+      ▼                        │  wait           │
+ step(action) ──► Reward       │  investigate    │
+      │           (dense)      └─────────────────┘
+      ▼
+ Episode done? ──No──► back to Observation
+      │
+     Yes
+      ▼
+ Grader scores (0.0 → 1.0)
+```
 
-Each step the agent takes one atomic action:
-- **assign** — assign a volunteer to a need
-- **wait** — do nothing this step
-- **investigate** — spend a step to increase confidence on an uncertain need
+---
 
-The environment evolves after every action: needs get resolved, volunteers become busy, deadlines tick down, warnings appear.
+## Quick Start
+
+### Prerequisites
+- Python 3.10 or higher
+- Git
+
+### Step 1 — Clone the repo
+```bash
+git clone https://github.com/Sayali5115/communitypulse-env
+cd communitypulse-env
+```
+
+### Step 2 — Create virtual environment
+```bash
+# Mac/Linux
+python -m venv venv
+source venv/bin/activate
+
+# Windows
+python -m venv venv
+venv\Scripts\activate
+```
+
+### Step 3 — Install dependencies
+```bash
+pip install -r requirements.txt
+```
+
+### Step 4 — Start the environment server
+```bash
+uvicorn app.main:app --host 0.0.0.0 --port 7860
+```
+
+Server is now running at `http://localhost:7860`
+
+### Step 5 — Test the server (new terminal)
+```bash
+# Health check
+curl http://localhost:7860/health
+# Expected: {"status":"ok"}
+
+# Reset to task 1
+curl -X POST http://localhost:7860/reset \
+  -H "Content-Type: application/json" \
+  -d '{"task_id": 1}'
+
+# Take one action
+curl -X POST http://localhost:7860/step \
+  -H "Content-Type: application/json" \
+  -d '{"action": {"type": "assign", "need_id": "n1", "volunteer_id": "v1"}}'
+```
+
+### Step 6 — Run inference (new terminal)
+```bash
+# Set environment variables
+export API_BASE_URL=https://router.huggingface.co/v1
+export MODEL_NAME=Qwen/Qwen2.5-72B-Instruct
+export HF_TOKEN=your-hf-token-here
+
+# Windows
+set API_BASE_URL=https://router.huggingface.co/v1
+set MODEL_NAME=Qwen/Qwen2.5-72B-Instruct
+set HF_TOKEN=your-hf-token-here
+
+# Run
+python inference.py
+```
+
+Expected output:
+```
+[START] task=clean_allocation env=communitypulse-env model=Qwen/Qwen2.5-72B-Instruct
+[STEP] step=1 action={"type":"assign","need_id":"n1","volunteer_id":"v1"} reward=1.48 done=false error=null
+...
+[END] success=true steps=9 score=1.000 rewards=1.48,1.52,...
+```
+
+---
+
+## Docker
+
+### Build and run
+```bash
+docker build -t communitypulse-env .
+
+docker run -p 7860:7860 \
+  -e API_BASE_URL=https://router.huggingface.co/v1 \
+  -e MODEL_NAME=Qwen/Qwen2.5-72B-Instruct \
+  -e HF_TOKEN=your-hf-token-here \
+  communitypulse-env
+```
+
+### Test the container
+```bash
+curl http://localhost:7860/health
+```
+
+---
+
+## API Endpoints
+
+| Endpoint | Method | Body | Description |
+|---|---|---|---|
+| `/health` | GET | — | Health check |
+| `/reset` | POST | `{"task_id": 1}` | Start new episode |
+| `/step` | POST | `{"action": {...}}` | Take one action |
+| `/state` | GET | — | Current observation |
+| `/tasks` | GET | — | List all tasks |
 
 ---
 
@@ -88,12 +210,11 @@ The environment evolves after every action: needs get resolved, volunteers becom
 | Event | Reward |
 |---|---|
 | Correct skill assignment | +1.0 |
-| High urgency need resolved (urgency ≥ 0.8) | +0.5 × urgency |
+| High urgency resolved (urgency ≥ 0.8) | +0.5 × urgency |
 | Deadline bonus | +0.5 |
 | Impact bonus (people affected) | up to +0.3 |
 | Wrong skill assigned | -0.5 |
 | Busy volunteer assigned | -0.3 |
-| Already resolved need | -0.2 |
 | Lazy wait (volunteers available) | -0.3 |
 | HIGH urgency need expired | -2.0 |
 | Loop detection | -2.0 |
@@ -104,21 +225,21 @@ The environment evolves after every action: needs get resolved, volunteers becom
 
 ### Task 1 — Clean Allocation (Easy)
 - 4 needs, 4 volunteers, 10 step budget
-- Clear urgency signals, no deadlines, enough volunteers
-- Tests basic allocation capability
-- Grader: correct skill assignments / total needs
+- Clear urgency, no deadlines, enough volunteers
+- Tests basic skill-matching and allocation
+- Grader: `correct_assignments / total_needs`
 
 ### Task 2 — Prioritization Under Scarcity (Medium)
 - 6 needs, 3 volunteers, 14 step budget
 - Fewer volunteers than needs, some urgency uncertainty
 - Agent must prioritize HIGH urgency needs
-- Grader: 60% urgency-weighted coverage + 40% skill match
+- Grader: `(0.6 × urgency_weighted_coverage) + (0.4 × skill_match)`
 
 ### Task 3 — Deadline + Skill Optimization (Hard)
 - 10 needs, 4 volunteers, 20 step budget
 - Tight deadlines, skill constraints, maximum scarcity
 - Agent must optimize coverage, skill quality, and deadline adherence
-- Grader: 40% coverage + 35% skill match + 25% deadline adherence
+- Grader: `(0.4 × coverage) + (0.35 × skill_match) + (0.25 × deadline_adherence)`
 
 ---
 
@@ -132,60 +253,7 @@ The environment evolves after every action: needs get resolved, volunteers becom
 | Average | 0.9714 |
 
 Model: `Qwen/Qwen2.5-72B-Instruct` via HuggingFace router
-
----
-
-## Setup & Usage
-
-### Local Setup
-
-```bash
-# Clone the repo
-git clone https://github.com/Sayali5115/communitypulse-env
-cd communitypulse-env
-
-# Create virtual environment
-python -m venv venv
-source venv/bin/activate  # Windows: venv\Scripts\activate
-
-# Install dependencies
-pip install -r requirements.txt
-
-# Start the environment server
-uvicorn app.main:app --host 0.0.0.0 --port 7860
-```
-
-### Run Inference
-
-```bash
-export API_BASE_URL=https://router.huggingface.co/v1
-export MODEL_NAME=Qwen/Qwen2.5-72B-Instruct
-export HF_TOKEN=your-hf-token-here
-
-python inference.py
-```
-
-### Docker
-
-```bash
-docker build -t communitypulse-env .
-
-docker run -p 7860:7860 \
-  -e API_BASE_URL=https://router.huggingface.co/v1 \
-  -e MODEL_NAME=Qwen/Qwen2.5-72B-Instruct \
-  -e HF_TOKEN=your-hf-token-here \
-  communitypulse-env
-```
-
-### API Endpoints
-
-| Endpoint | Method | Description |
-|---|---|---|
-| `/health` | GET | Health check |
-| `/reset` | POST | Start new episode |
-| `/step` | POST | Take one action |
-| `/state` | GET | Current observation |
-| `/tasks` | GET | List all tasks |
+Runtime: ~1.8 minutes
 
 ---
 
@@ -196,6 +264,7 @@ docker run -p 7860:7860 \
 | `API_BASE_URL` | LLM API endpoint | `https://router.huggingface.co/v1` |
 | `MODEL_NAME` | Model identifier | `Qwen/Qwen2.5-72B-Instruct` |
 | `HF_TOKEN` | HuggingFace API key | — |
+| `ENV_URL` | Environment server URL | `http://localhost:7860` |
 
 ---
 
@@ -203,10 +272,10 @@ docker run -p 7860:7860 \
 
 ```
 communitypulse-env/
-├── inference.py          # Baseline inference script
+├── inference.py          # Baseline inference script (root)
 ├── config.py             # Central configuration
-├── Dockerfile            # Container definition
-├── openenv.yaml          # OpenEnv spec
+├── Dockerfile
+├── openenv.yaml
 ├── requirements.txt
 ├── README.md
 └── app/
@@ -215,12 +284,6 @@ communitypulse-env/
     ├── models.py         # Pydantic models
     ├── graders.py        # Task graders
     └── data/
-        ├── reports.json  # Synthetic needs data
+        ├── reports.json
         └── volunteers.json
 ```
-
----
-
-## Real-World Connection
-
-This environment was extracted from **CommunityPulse** — a multi-tenant SaaS platform being built for grassroots NGO volunteer coordination. The allocation decisions modeled here represent the exact decisions field coordinators make manually today. A trained agent could be deployed directly inside CommunityPulse to assist coordinators in real operations.
