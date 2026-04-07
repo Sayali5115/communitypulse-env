@@ -5,8 +5,7 @@ description: >
   An AI agent allocates limited volunteers to urgent humanitarian needs
   under time pressure and resource scarcity. The agent makes sequential
   decisions — assign, wait, or investigate — with dense reward signals
-  after every step. Extracted from CommunityPulse, a real SaaS platform
-  for NGO volunteer coordination.
+  after every step. Built to fill a real gap in humanitarian AI benchmarks.
 
 tags:
   - openenv
