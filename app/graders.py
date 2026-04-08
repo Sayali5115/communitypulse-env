@@ -1,7 +1,7 @@
 """
 CommunityPulse-Env — Task Graders
 Three deterministic graders, one per task.
-All return float clamped to [0.0, 1.0].
+All return float strictly within (0.0, 1.0) — exclusive on both ends.
 """
 
 from app.models import Need, Volunteer, NeedStatus
@@ -12,9 +12,14 @@ from app.env import CommunityPulseEnv
 # HELPER
 # ─────────────────────────────────────────────
 
+_EPSILON = 1e-3   # ensures 0.001 gap from both ends — no floating point ambiguity
+
 def _clamp(value: float) -> float:
-    """Hard clamp to [0.0, 1.0]. Always applied before returning."""
-    return round(max(0.0, min(1.0, value)), 4)
+    """Clamp to strictly open interval (0, 1) — exclusive on both ends.
+    Validator requires score > 0.0 and score < 1.0.
+    """
+    clamped = max(_EPSILON, min(1.0 - _EPSILON, value))
+    return round(clamped, 4)
 
 
 # ─────────────────────────────────────────────
