@@ -1,3 +1,12 @@
+---
+title: Communitypulse Env
+emoji: 🚀
+colorFrom: purple
+colorTo: blue
+sdk: docker
+pinned: false
+license: mit
+---
 # CommunityPulse-Env
 
 An RL environment simulating humanitarian NGO volunteer coordination.
@@ -287,3 +296,5 @@ communitypulse-env/
         ├── reports.json
         └── volunteers.json
 ```
+=======
+
