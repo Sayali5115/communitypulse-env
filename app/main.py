@@ -24,6 +24,7 @@ from app.models import (
     StepResponse,
     HealthResponse,
 )
+from app.env_multiagent import MultiAgentCoordinatorEnv
 
 # ─────────────────────────────────────────────
 # APP SETUP
@@ -80,10 +81,10 @@ def reset(request: ResetRequest = None):
     if request is None:
         request = ResetRequest(task_id=1)
     task_id = request.task_id if request.task_id is not None else 1
-    if task_id not in (1, 2, 3):
+    if task_id not in (1, 2, 3, 4):
         raise HTTPException(
             status_code=400,
-            detail=f"Invalid task_id: {task_id}. Must be 1, 2, or 3."
+            detail=f"Invalid task_id: {task_id}. Must be 1, 2, 3 or 4."
         )
     return env.reset(task_id)
 
@@ -155,3 +156,66 @@ def list_tasks():
             },
         ]
     }
+    
+# Multi-agent endpoints
+multiagent_env = None
+
+@app.post("/reset_multiagent")
+async def reset_multiagent(request: dict):
+    """Reset environment in multi-agent mode."""
+    global multiagent_env
+    
+    task_id = request.get("task_id", 4)
+    num_coordinators = request.get("num_coordinators", 2)
+    
+    # Create fresh base environment instance for multi-agent
+    base_env = CommunityPulseEnv()
+    
+    # Wrap in multi-agent
+    multiagent_env = MultiAgentCoordinatorEnv(
+        base_env=base_env,
+        num_coordinators=num_coordinators
+    )
+    
+    observation = multiagent_env.reset(task_id)
+    
+    return {
+        "observation": observation,
+        "info": {"mode": "multi_agent", "coordinators": num_coordinators}
+    }
+
+@app.post("/step_multiagent")
+async def step_multiagent(request: dict):
+    """Take step in multi-agent environment."""
+    global multiagent_env
+    
+    if multiagent_env is None:
+        return {"error": "Environment not initialized. Call /reset_multiagent first"}
+    
+    action = request.get("action")
+    coordinator_id = request.get("coordinator_id")
+    
+    result = multiagent_env.step(action, coordinator_id)
+    
+    return result
+
+@app.get("/state_multiagent")
+async def get_state_multiagent():
+    """Get current multi-agent state."""
+    global multiagent_env
+    
+    if multiagent_env is None:
+        return {"error": "Environment not initialized"}
+    
+    base_obs = multiagent_env.base_env.get_state()
+    return multiagent_env._get_multiagent_observation(base_obs)
+
+@app.get("/leaderboard")
+async def get_leaderboard():
+    """Get coordinator rankings."""
+    global multiagent_env
+    
+    if multiagent_env is None:
+        return {"error": "Multi-agent environment not initialized"}
+    
+    return {"leaderboard": multiagent_env.get_leaderboard()}

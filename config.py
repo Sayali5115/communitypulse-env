@@ -29,6 +29,7 @@ TASK_BUDGETS = {
     1: 10,   # Easy — enough steps to assign all needs
     2: 14,   # Medium — tight but manageable
     3: 20,   # Hard — requires optimal decisions
+    4: 30,
 }
 
 # Number of needs per task
@@ -36,6 +37,7 @@ TASK_NEED_COUNTS = {
     1: 4,
     2: 6,
     3: 10,
+    4: 10,
 }
 
 # Number of volunteers per task
@@ -43,6 +45,7 @@ TASK_VOLUNTEER_COUNTS = {
     1: 4,   # Equal to needs — no scarcity
     2: 3,   # Fewer than needs — must prioritize
     3: 4,   # Much fewer than needs — must optimize
+    4: 4,
 }
 
 # ─────────────────────────────────────────────

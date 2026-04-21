@@ -95,7 +95,7 @@ class Observation(BaseModel):
     Returned by reset() and step().
 
     episode_id:      Unique ID for this episode run.
-    task_id:         Which task is running (1, 2, or 3).
+    task_id:         Which task is running (1, 2, 3 or 4).
     step:            Current step number (starts at 0).
     time_remaining:  Steps left before episode ends.
     needs:           All needs in the current episode.
@@ -105,7 +105,7 @@ class Observation(BaseModel):
     warnings:        Environment warnings (e.g. "2 HIGH needs expiring soon").
     """
     episode_id:     str
-    task_id:        int = Field(..., ge=1, le=3)
+    task_id:        int = Field(..., ge=1, le=4)
     step:           int = Field(..., ge=0)
     time_remaining: int = Field(..., ge=0)
     needs:          List[Need]
