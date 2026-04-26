@@ -21,7 +21,7 @@ Meta PyTorch OpenEnv Hackathon — Theme #1: Multi-Agent Interactions
 - **GitHub Repository:** https://github.com/Sayali5115/communitypulse-env
 - **Hugging Face Space:** https://huggingface.co/spaces/CommunityPulse/communitypulse-env
 - **Colab Notebook:** https://colab.research.google.com/drive/1kIgEIoCZavHsFVhUVfTYTVXbZ8qnoVMD?usp=sharing
-- **Blog Post:** <!-- TODO: Add blog.md / blog URL here -->
+- **Blog Post:** https://huggingface.co/spaces/CommunityPulse/communitypulse-env/blob/main/blog_post.md
 
 ---
 
